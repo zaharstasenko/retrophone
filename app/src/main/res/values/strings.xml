@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RetroPhone</string>
+    <string name="call_btn_text">Call</string>
+    <string name="permission_toast">Application need call permission</string>
+</resources>
