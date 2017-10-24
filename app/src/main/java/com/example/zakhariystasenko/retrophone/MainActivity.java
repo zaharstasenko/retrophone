@@ -12,7 +12,7 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements RetroPhoneView.Callback{
     private static final int PERMISSION_REQUEST_CODE = 123;
     private TextView mPhoneNumber;
 
@@ -24,21 +24,27 @@ public class MainActivity extends AppCompatActivity {
         initView();
     }
 
-    private void initView(){
+    private void initView() {
         mPhoneNumber = (TextView) findViewById(R.id.phoneNumber);
-
         findViewById(R.id.buttonCall).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 tryCall();
             }
         });
+        findViewById(R.id.buttonReset).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mPhoneNumber.setText("");
+            }
+        });
+        ((RetroPhoneView) findViewById(R.id.phone)).setCallback(this);
     }
 
-    private void tryCall(){
+    private void tryCall() {
         try {
             makeCall();
-        } catch (SecurityException e){
+        } catch (SecurityException e) {
             requestCallPermission();
         }
     }
@@ -55,12 +61,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == PERMISSION_REQUEST_CODE){
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED){
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 makeCall();
             } else {
                 Toast.makeText(this, R.string.permission_toast, Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    @Override
+    public void onButtonPressed(int button) {
+        mPhoneNumber.setText(mPhoneNumber.getText().toString() + button);
     }
 }
