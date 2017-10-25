@@ -12,7 +12,9 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity implements RetroPhoneView.Callback{
+import com.example.zakhariystasenko.retrophone.RetroPhoneView.RetroPhoneView;
+
+public class MainActivity extends AppCompatActivity implements RetroPhoneView.ActivityCallback {
     private static final int PERMISSION_REQUEST_CODE = 123;
     private TextView mPhoneNumber;
 
