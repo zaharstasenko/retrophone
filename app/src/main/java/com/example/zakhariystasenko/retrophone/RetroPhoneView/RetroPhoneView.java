@@ -10,9 +10,9 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public class RetroPhoneView extends View implements DiskRotationController.ViewCallback {
-    private int mViewSize;
     private Paint mPaint = new Paint();
 
+    private boolean mCoordinatesInitialized = false;
     private PhoneDisk mPhoneDisk;
     private DiskRotationController mDiskRotationController;
 
@@ -33,33 +33,41 @@ public class RetroPhoneView extends View implements DiskRotationController.ViewC
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        mViewSize = Math.min(getMeasuredWidth(), getMeasuredHeight());
-        initializeCoordinates();
-        setMeasuredDimension(mViewSize, mViewSize);
+        setMeasuredDimension(Math.min(getMeasuredWidth(), getMeasuredHeight()),
+                Math.min(getMeasuredWidth(), getMeasuredHeight()));
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        initializeCoordinates(canvas);
 
         drawPhoneDisk(canvas);
         drawDiskButtons(canvas);
         drawRotationLimiter(canvas);
         drawInnerCircle(canvas);
 
-        mDiskRotationController.rotateDisk();
+        if (mDiskRotationController.mIsRotatingBack) {
+            mDiskRotationController.rotateBack();
+        }
     }
 
-    private void initializeCoordinates() {
-        mPhoneDisk = new PhoneDisk(mViewSize);
-        mDiskRotationController = new DiskRotationController(mPhoneDisk);
-        mDiskRotationController.setViewCallback(this);
+    private void initializeCoordinates(Canvas canvas) {
+        if (!mCoordinatesInitialized) {
+            mCoordinatesInitialized = true;
+
+            mPhoneDisk = new PhoneDisk(canvas.getHeight());
+            mDiskRotationController = new DiskRotationController(mPhoneDisk);
+            mDiskRotationController.setViewCallback(this);
+        }
     }
 
     @Override
-    public void onRotationFinished(int degreesRotated) {
-        int buttonNumber = ((degreesRotated + RotationLimiter.mRotationLimiterAngle) / PhoneDisk.DEGREES_PER_BUTTON) % PhoneDisk.BUTTONS_COUNT;
-        mActivityCallback.onButtonPressed(buttonNumber);
+    public void onRotationFinished(float degreesRotated) {
+        int buttonNumber = (int)((degreesRotated + RotationLimiter.mRotationLimiterAngle) / PhoneDisk.DEGREES_PER_BUTTON);
+        if (buttonNumber >= 1) {
+            mActivityCallback.onButtonPressed(buttonNumber % PhoneDisk.BUTTONS_COUNT);
+        }
     }
 
     private void drawPhoneDisk(Canvas canvas) {
@@ -121,7 +129,6 @@ public class RetroPhoneView extends View implements DiskRotationController.ViewC
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        mDiskRotationController.checkTouch(event);
-        return super.onTouchEvent(event);
+        return mDiskRotationController.handleTouch(event);
     }
 }

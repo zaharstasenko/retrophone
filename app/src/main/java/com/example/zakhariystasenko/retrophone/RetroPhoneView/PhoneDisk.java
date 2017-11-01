@@ -1,18 +1,18 @@
 package com.example.zakhariystasenko.retrophone.RetroPhoneView;
 
-import android.graphics.Point;
 import android.graphics.RectF;
 
 class PhoneDisk {
     final Point mDiskCenter;
-    final int mDiskInnerRadius;
-    final int mDiskOutherRadius;
+    final float mDiskInnerRadius;
+    final float mDiskOutherRadius;
 
     static final int BUTTONS_COUNT = 10;
-    private static final int BUTTONS_SECTOR_SIZE = 270;
-    static final int DEGREES_PER_BUTTON = BUTTONS_SECTOR_SIZE / BUTTONS_COUNT;
+    private static final float BUTTONS_SECTOR_START = 27;
+    private static final float BUTTONS_SECTOR_END = 270;
+    static final float DEGREES_PER_BUTTON = (BUTTONS_SECTOR_END - BUTTONS_SECTOR_START) / BUTTONS_COUNT;
 
-    private final int mDistanceBetweenDiskAndButtonsCenter;
+    private final float mDistanceBetweenDiskAndButtonsCenter;
     DiskButton[] mDiskButtons;
 
     RotationLimiter mRotationLimiter;
@@ -29,40 +29,41 @@ class PhoneDisk {
         mRotationLimiter = new RotationLimiter(calculateRotationLimiterPosition());
     }
 
-    private int calculateBaseButtonAngle(int buttonIndex){
-        return (buttonIndex + 1) * DEGREES_PER_BUTTON;
+    private float calculateBaseButtonAngle(int buttonIndex) {
+        return BUTTONS_SECTOR_START + buttonIndex * DEGREES_PER_BUTTON;
     }
 
-    private Point calculateButtonCenter(int buttonIndex, int rotationAngle) {
-        return new Point(calculateButtonPositionX(calculateBaseButtonAngle(buttonIndex), rotationAngle),
-                calculateButtonPositionY(calculateBaseButtonAngle(buttonIndex), rotationAngle));
+    private Point calculateButtonCenter(float baseAngle, float rotationAngle) {
+        return new Point(calculateButtonPositionX(baseAngle, rotationAngle),
+                calculateButtonPositionY(baseAngle, rotationAngle));
     }
 
-    private int calculateButtonPositionX(int baseAngle, int rotationAngle) {
-        return (int) (mDiskCenter.x +
+    private float calculateButtonPositionX(float baseAngle, float rotationAngle) {
+        return mDiskCenter.x +
                 mDistanceBetweenDiskAndButtonsCenter *
-                        Math.cos(Math.toRadians(baseAngle - rotationAngle)));
+                        (float) Math.cos(Math.toRadians(baseAngle - rotationAngle));
     }
 
-    private int calculateButtonPositionY(int baseAngle, int rotationAngle) {
-        return (int) (mDiskCenter.y -
+    private float calculateButtonPositionY(float baseAngle, float rotationAngle) {
+        return mDiskCenter.y -
                 mDistanceBetweenDiskAndButtonsCenter *
-                        Math.sin(Math.toRadians(baseAngle - rotationAngle)));
+                        (float) Math.sin(Math.toRadians(baseAngle - rotationAngle));
     }
 
-    private RectF calculateRotationLimiterPosition(){
+    private RectF calculateRotationLimiterPosition() {
         return new RectF(mDiskCenter.x - mDiskOutherRadius,
                 mDiskCenter.y - mDiskOutherRadius,
                 mDiskCenter.x + mDiskOutherRadius,
                 mDiskCenter.y + mDiskOutherRadius);
     }
 
-    void calculateButtonPositions(int rotationAngle){
+    void calculateButtonPositions(float rotationAngle) {
         float buttonPaddingCoef = 0.8f;
         float buttonRadius = (mDiskOutherRadius - mDiskInnerRadius) / 2 * buttonPaddingCoef;
 
         for (int i = 0; i < BUTTONS_COUNT; ++i) {
-            mDiskButtons[i] = new DiskButton(calculateButtonCenter(i, rotationAngle), buttonRadius);
+            float baseAngle = calculateBaseButtonAngle(i);
+            mDiskButtons[i] = new DiskButton(calculateButtonCenter(baseAngle, rotationAngle), buttonRadius);
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.example.zakhariystasenko.retrophone.RetroPhoneView;
 
-import android.graphics.Point;
 
 class DiskButton {
     Point mButtonCenter;
