@@ -1,5 +1,6 @@
 package com.example.zakhariystasenko.retrophone.RetroPhoneView;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -8,26 +9,74 @@ import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
 
-public class RetroPhoneView extends View implements DiskRotationController.ViewCallback {
+import com.example.zakhariystasenko.retrophone.R;
+
+public class RetroPhoneView extends ViewGroup implements DiskRotationController.ViewCallback {
     private Paint mPaint = new Paint();
 
-    private boolean mCoordinatesInitialized = false;
     private PhoneDisk mPhoneDisk;
-    private DiskRotationController mDiskRotationController;
 
+    private DiskRotationController mDiskRotationController;
     private ActivityCallback mActivityCallback;
+
+    private Point[] mButtonCenters = new Point[PhoneDisk.BUTTONS_COUNT];
+
+    private Context mContext;
 
     public RetroPhoneView(Context context) {
         super(context);
+        init(context);
     }
 
     public RetroPhoneView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        init(context);
     }
 
     public RetroPhoneView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
+    private void init(Context context) {
+        setWillNotDraw(false);
+        mContext = context;
+
+        Button resetButton = new Button(context);
+        resetButton.setBackgroundResource(R.drawable.round_background);
+        resetButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ObjectAnimator.ofFloat(v, View.SCALE_X, 0.8f, 1).start();
+                ObjectAnimator.ofFloat(v, View.SCALE_Y, 0.8f, 1).start();
+
+                mActivityCallback.onResetPressed();
+            }
+        });
+
+        addView(resetButton);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int size = r - l;
+        float diskRadius = size / 2;
+        float resetButtonRadius = size / 5.2f;
+
+        float left = diskRadius - resetButtonRadius;
+        float right = diskRadius + resetButtonRadius;
+        float bottom = diskRadius + resetButtonRadius;
+        float top = diskRadius - resetButtonRadius;
+
+        View resetButton = getChildAt(0);
+
+        resetButton.layout((int) left, (int) top, (int) right, (int) bottom);
+        resetButton.setBackgroundResource(R.drawable.round_background);
+
+        initializeDrawCoordinates(size);
     }
 
     @Override
@@ -40,65 +89,68 @@ public class RetroPhoneView extends View implements DiskRotationController.ViewC
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        initializeCoordinates(canvas);
 
         drawPhoneDisk(canvas);
         drawDiskButtons(canvas);
+        drawDiskNumbers(canvas);
         drawRotationLimiter(canvas);
         drawInnerCircle(canvas);
 
         if (mDiskRotationController.mIsRotatingBack) {
-            mDiskRotationController.rotateBack();
+            mDiskRotationController.returnDiskToStartPosition();
         }
     }
 
-    private void initializeCoordinates(Canvas canvas) {
-        if (!mCoordinatesInitialized) {
-            mCoordinatesInitialized = true;
-
-            mPhoneDisk = new PhoneDisk(canvas.getHeight());
-            mDiskRotationController = new DiskRotationController(mPhoneDisk);
-            mDiskRotationController.setViewCallback(this);
+    private void initializeDrawCoordinates(int size) {
+        mPhoneDisk = new PhoneDisk(size);
+        for (int i = 0; i < PhoneDisk.BUTTONS_COUNT; ++i) {
+            mButtonCenters[i] = mPhoneDisk.mDiskButtons[i].mButtonCenter;
         }
+
+        mDiskRotationController = new DiskRotationController(mPhoneDisk, mContext);
+        mDiskRotationController.setViewCallback(this);
     }
 
     @Override
-    public void onRotationFinished(float degreesRotated) {
-        int buttonNumber = (int)((degreesRotated + RotationLimiter.mRotationLimiterAngle) / PhoneDisk.DEGREES_PER_BUTTON);
-        if (buttonNumber >= 1) {
-            mActivityCallback.onButtonPressed(buttonNumber % PhoneDisk.BUTTONS_COUNT);
-        }
+    public void onRotationFinished(int numberInputted) {
+        mActivityCallback.onNumberInputted(numberInputted);
     }
 
     private void drawPhoneDisk(Canvas canvas) {
         mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setColor(Color.BLUE);
+        mPaint.setColor(0x770000FF);
 
         canvas.drawCircle(mPhoneDisk.mDiskCenter.x, mPhoneDisk.mDiskCenter.y, mPhoneDisk.mDiskOutherRadius, mPaint);
     }
 
     private void drawDiskButtons(Canvas canvas) {
         mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setTextSize(50);
+        mPaint.setColor(Color.WHITE);
 
         for (int i = 0; i < PhoneDisk.BUTTONS_COUNT; ++i) {
-            mPaint.setColor(Color.WHITE);
             canvas.drawCircle(mPhoneDisk.mDiskButtons[i].mButtonCenter.x,
                     mPhoneDisk.mDiskButtons[i].mButtonCenter.y,
                     mPhoneDisk.mDiskButtons[i].mButtonRadius,
                     mPaint);
+        }
+    }
 
-            mPaint.setColor(Color.BLACK);
+    private void drawDiskNumbers(Canvas canvas) {
+        mPaint.setStyle(Paint.Style.FILL);
+        mPaint.setColor(Color.BLACK);
+        mPaint.setTextSize(50);
+
+        for (int i = 0; i < PhoneDisk.BUTTONS_COUNT; ++i) {
             canvas.drawText((i + 1) % PhoneDisk.BUTTONS_COUNT + "",
-                    mPhoneDisk.mDiskButtons[i].mButtonCenter.x,
-                    mPhoneDisk.mDiskButtons[i].mButtonCenter.y,
+                    mButtonCenters[i].x - 15,
+                    mButtonCenters[i].y + 18,
                     mPaint);
         }
     }
 
     private void drawRotationLimiter(Canvas canvas) {
         mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setColor(Color.RED);
+        mPaint.setColor(Color.parseColor("#FF4081"));
 
         canvas.drawArc(mPhoneDisk.mRotationLimiter.mRotationLimiterImage,
                 RotationLimiter.mRotationLimiterImageAngle,
@@ -120,7 +172,9 @@ public class RetroPhoneView extends View implements DiskRotationController.ViewC
     }
 
     public interface ActivityCallback {
-        void onButtonPressed(int button);
+        void onNumberInputted(int button);
+
+        void onResetPressed();
     }
 
     public void setCallback(ActivityCallback activityCallback) {

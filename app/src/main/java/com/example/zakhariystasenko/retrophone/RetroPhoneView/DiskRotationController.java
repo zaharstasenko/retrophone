@@ -1,21 +1,45 @@
 package com.example.zakhariystasenko.retrophone.RetroPhoneView;
 
+import android.content.Context;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.view.MotionEvent;
 
+import com.example.zakhariystasenko.retrophone.R;
+
 class DiskRotationController {
+    private static final float ALLOWED_BACK_ROTATION = 15;
+
+    // to calculate rotation angle
     private float mCurrentAngle;
     private float mRotationStartAngle;
+    // to prevent difference, if user touched edge of the button or center of the button
+    private float mTouchToButtonCenterDistance;
 
     private ViewCallback mViewCallback;
     private PhoneDisk mPhoneDisk;
 
-    private boolean mStartMoveInitialized = false;
+    // to block new rotation, if disk is rotating back after input or after invalid move
     boolean mIsRotatingBack = false;
-
     private boolean mInvalidMoveDone = false;
 
-    DiskRotationController(PhoneDisk phoneDisk) {
+    // for sound on back rotation
+    private SoundPool mSoundPool = new SoundPool(2, AudioManager.STREAM_MUSIC, 0);
+    private int mButtonSoundId[] = new int[PhoneDisk.BUTTONS_COUNT];
+
+    DiskRotationController(PhoneDisk phoneDisk, Context context) {
         mPhoneDisk = phoneDisk;
+
+        mButtonSoundId[0] = mSoundPool.load(context, R.raw.click_sound_1, 1);
+        mButtonSoundId[1] = mSoundPool.load(context, R.raw.click_sound_2, 1);
+        mButtonSoundId[2] = mSoundPool.load(context, R.raw.click_sound_3, 1);
+        mButtonSoundId[3] = mSoundPool.load(context, R.raw.click_sound_4, 1);
+        mButtonSoundId[4] = mSoundPool.load(context, R.raw.click_sound_5, 1);
+        mButtonSoundId[5] = mSoundPool.load(context, R.raw.click_sound_6, 1);
+        mButtonSoundId[6] = mSoundPool.load(context, R.raw.click_sound_7, 1);
+        mButtonSoundId[7] = mSoundPool.load(context, R.raw.click_sound_8, 1);
+        mButtonSoundId[8] = mSoundPool.load(context, R.raw.click_sound_9, 1);
+        mButtonSoundId[9] = mSoundPool.load(context, R.raw.click_sound_10, 1);
     }
 
     boolean handleTouch(MotionEvent event) {
@@ -25,24 +49,20 @@ class DiskRotationController {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                mInvalidMoveDone = false;
                 return checkButtonTouched(event.getX(), event.getY());
 
             case MotionEvent.ACTION_MOVE:
                 if (!mInvalidMoveDone) {
                     if (checkMove(event.getX(), event.getY())) {
-                        rotateDisk();
+                        setDiskRotatedOn(mRotationStartAngle - mCurrentAngle);
                     } else {
-                        mViewCallback.onRotationFinished(mRotationStartAngle - mCurrentAngle);
-                        rotateBack();
+                        onMoveFinished();
                     }
                 }
                 break;
 
             case MotionEvent.ACTION_UP:
-                mIsRotatingBack = true;
-                mViewCallback.onRotationFinished(mRotationStartAngle - mCurrentAngle);
-                rotateBack();
+                onMoveFinished();
                 break;
 
             default:
@@ -52,12 +72,40 @@ class DiskRotationController {
         return false;
     }
 
+    private void onMoveFinished() {
+        int buttonInputted = getButtonInputted();
+        if (buttonInputted != -1) {
+            mSoundPool.play(mButtonSoundId[buttonInputted], 1, 1, 0, 0, 1);
+            mViewCallback.onRotationFinished((buttonInputted + 1) % 10);
+        }
+
+        mIsRotatingBack = true;
+        returnDiskToStartPosition();
+    }
+
+    private int getButtonInputted() {
+        float degreesRotated = mRotationStartAngle - mCurrentAngle;
+        float minDegreesForFirst = 30;
+
+        for (int i = 0; i < PhoneDisk.BUTTONS_COUNT; ++i) {
+            float min = minDegreesForFirst + i * PhoneDisk.DEGREES_PER_BUTTON;
+            float max = minDegreesForFirst + (i + 1) * PhoneDisk.DEGREES_PER_BUTTON;
+
+            if (min < degreesRotated && degreesRotated < max) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     private boolean checkButtonTouched(float touchX, float touchY) {
         for (int i = 0; i < PhoneDisk.BUTTONS_COUNT; ++i) {
             if (touchX > mPhoneDisk.mDiskButtons[i].mButtonBorder.mLeftBorder &&
                     touchX < mPhoneDisk.mDiskButtons[i].mButtonBorder.mRightBorder &&
                     touchY > mPhoneDisk.mDiskButtons[i].mButtonBorder.mBottomBorder &&
                     touchY < mPhoneDisk.mDiskButtons[i].mButtonBorder.mTopBorder) {
+                initNewMove(getTouchAngle(touchX, touchY), mPhoneDisk.baseAngles[i]);
                 return true;
             }
         }
@@ -65,46 +113,76 @@ class DiskRotationController {
         return false;
     }
 
+    private void initNewMove(float touchAngle, float buttonAngle) {
+        mInvalidMoveDone = false;
+
+        mCurrentAngle = touchAngle;
+        mRotationStartAngle = mCurrentAngle;
+        mTouchToButtonCenterDistance = mCurrentAngle - buttonAngle;
+    }
+
     private boolean checkMove(float touchX, float touchY) {
         float touchAngle = getTouchAngle(touchX, touchY);
-        initNewMoveStart(touchAngle);
 
-        if (!checkButtonTouched(touchX, touchY) ||
-                touchAngle > mRotationStartAngle ||
-                touchAngle < RotationLimiter.mRotationLimiterAngle) {
+        if (!checkTouchRadius(touchX, touchY) ||
+                touchAngle > mRotationStartAngle + ALLOWED_BACK_ROTATION ||
+                touchAngle < RotationLimiter.mRotationLimiterAngle + mTouchToButtonCenterDistance) {
+            // if last move was done very fast
+            if (touchAngle < RotationLimiter.mRotationLimiterAngle + mTouchToButtonCenterDistance) {
+                mCurrentAngle = RotationLimiter.mRotationLimiterAngle + mTouchToButtonCenterDistance;
+            }
+
             mInvalidMoveDone = true;
             return false;
         }
-
         mCurrentAngle = touchAngle;
-        rotateDisk();
+
         return true;
     }
 
-    private void initNewMoveStart(float touchAngle) {
-        if (!mStartMoveInitialized) {
-            mStartMoveInitialized = true;
-            mCurrentAngle = touchAngle;
-            mRotationStartAngle = touchAngle;
-        }
+    private boolean checkTouchRadius(float touchX, float touchY) {
+        float x = touchX - mPhoneDisk.mDiskCenter.x;
+        float y = touchY - mPhoneDisk.mDiskCenter.y;
+
+        float distance = (float) Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+        return mPhoneDisk.mDiskInnerRadius < distance && distance < mPhoneDisk.mDiskOutherRadius;
     }
 
-    private void rotateDisk() {
-        mPhoneDisk.calculateButtonPositions(mRotationStartAngle - mCurrentAngle);
+    void returnDiskToStartPosition() {
+        if (mRotationStartAngle > mCurrentAngle) {
+            mCurrentAngle += calculateBackRotationSpeed();
+        } else {
+            mCurrentAngle--;
+        }
+
+        int backRotationAngle = (int) (mRotationStartAngle - mCurrentAngle);
+        mIsRotatingBack = backRotationAngle != 0;
+
+        setDiskRotatedOn(backRotationAngle);
+    }
+
+    // Used for speed increase
+    private float calculateBackRotationSpeed() {
+        float step = 1.5f;
+
+        if (mCurrentAngle > 0) {
+            step += (mCurrentAngle / mRotationStartAngle) * 3;
+        }
+
+        if (Math.abs(mRotationStartAngle - mCurrentAngle) < step) {
+            step = (int) (mRotationStartAngle - mCurrentAngle);
+        }
+
+        return step;
+    }
+
+    private void setDiskRotatedOn(float rotationAngle) {
+        mPhoneDisk.calculateButtonPositions(rotationAngle);
         mViewCallback.onRedrawRequired();
     }
 
-    void rotateBack() {
-        if (mRotationStartAngle >= mCurrentAngle) {
-            mIsRotatingBack = true;
-            mPhoneDisk.calculateButtonPositions((int) (mRotationStartAngle - ++mCurrentAngle));
-            mViewCallback.onRedrawRequired();
-        } else {
-            mStartMoveInitialized = false;
-            mIsRotatingBack = false;
-        }
-    }
-
+    // get angle of touch [-90, 270]
+    // where 0 is right angle of disk
     private float getTouchAngle(float touchX, float touchY) {
         float angle = (float) Math.toDegrees(
                 Math.atan((mPhoneDisk.mDiskCenter.y - touchY) /
@@ -119,6 +197,6 @@ class DiskRotationController {
     interface ViewCallback {
         void onRedrawRequired();
 
-        void onRotationFinished(float degreesRotated);
+        void onRotationFinished(int numberInputted);
     }
 }

@@ -8,22 +8,23 @@ class PhoneDisk {
     final float mDiskOutherRadius;
 
     static final int BUTTONS_COUNT = 10;
-    private static final float BUTTONS_SECTOR_START = 27;
+    static final float BUTTONS_SECTOR_START = -25;
     private static final float BUTTONS_SECTOR_END = 270;
     static final float DEGREES_PER_BUTTON = (BUTTONS_SECTOR_END - BUTTONS_SECTOR_START) / BUTTONS_COUNT;
 
     private final float mDistanceBetweenDiskAndButtonsCenter;
-    DiskButton[] mDiskButtons;
+    DiskButton[] mDiskButtons = new DiskButton[BUTTONS_COUNT];
+
+    float[] baseAngles = new float[BUTTONS_COUNT];
 
     RotationLimiter mRotationLimiter;
 
     PhoneDisk(int viewSize) {
         mDiskCenter = new Point(viewSize / 2, viewSize / 2);
-        mDiskInnerRadius = viewSize / 3;
+        mDiskInnerRadius = viewSize / 4;
         mDiskOutherRadius = viewSize / 2;
 
         mDistanceBetweenDiskAndButtonsCenter = (mDiskOutherRadius + mDiskInnerRadius) / 2;
-        mDiskButtons = new DiskButton[BUTTONS_COUNT];
         calculateButtonPositions(0);
 
         mRotationLimiter = new RotationLimiter(calculateRotationLimiterPosition());
@@ -58,12 +59,13 @@ class PhoneDisk {
     }
 
     void calculateButtonPositions(float rotationAngle) {
-        float buttonPaddingCoef = 0.8f;
+        float buttonPaddingCoef = 0.65f;
         float buttonRadius = (mDiskOutherRadius - mDiskInnerRadius) / 2 * buttonPaddingCoef;
 
         for (int i = 0; i < BUTTONS_COUNT; ++i) {
             float baseAngle = calculateBaseButtonAngle(i);
             mDiskButtons[i] = new DiskButton(calculateButtonCenter(baseAngle, rotationAngle), buttonRadius);
+            baseAngles[i] = baseAngle;
         }
     }
 }

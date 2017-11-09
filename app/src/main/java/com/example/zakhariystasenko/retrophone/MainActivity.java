@@ -3,11 +3,13 @@ package com.example.zakhariystasenko.retrophone;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -16,30 +18,14 @@ import com.example.zakhariystasenko.retrophone.RetroPhoneView.RetroPhoneView;
 
 public class MainActivity extends AppCompatActivity implements RetroPhoneView.ActivityCallback {
     private static final int PERMISSION_REQUEST_CODE = 123;
-    private TextView mPhoneNumber;
+    private String mPhoneNumber = "";
+    private Thread mCallWaitThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
 
-        initView();
-    }
-
-    private void initView() {
-        mPhoneNumber = (TextView) findViewById(R.id.phoneNumber);
-        findViewById(R.id.buttonCall).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                tryCall();
-            }
-        });
-        findViewById(R.id.buttonReset).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mPhoneNumber.setText("");
-            }
-        });
         ((RetroPhoneView) findViewById(R.id.phone)).setCallback(this);
     }
 
@@ -52,7 +38,8 @@ public class MainActivity extends AppCompatActivity implements RetroPhoneView.Ac
     }
 
     private void makeCall() throws SecurityException {
-        startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + mPhoneNumber.getText())));
+        startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + mPhoneNumber)));
+        mPhoneNumber = "";
     }
 
     private void requestCallPermission() {
@@ -73,7 +60,37 @@ public class MainActivity extends AppCompatActivity implements RetroPhoneView.Ac
     }
 
     @Override
-    public void onButtonPressed(int button) {
-        mPhoneNumber.setText(mPhoneNumber.getText().toString() + button);
+    public void onNumberInputted(int button) {
+        mPhoneNumber += button;
+        Toast.makeText(this, mPhoneNumber, Toast.LENGTH_SHORT).show();
+
+        if (mCallWaitThread != null) {
+            mCallWaitThread.interrupt();
+        }
+
+        mCallWaitThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(7000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+
+                tryCall();
+            }
+        });
+
+        mCallWaitThread.start();
+    }
+
+    @Override
+    public void onResetPressed() {
+        mPhoneNumber = "";
+        Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show();
+
+        if (mCallWaitThread != null) {
+            mCallWaitThread.interrupt();
+        }
     }
 }
