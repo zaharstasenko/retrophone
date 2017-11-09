@@ -11,16 +11,19 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.example.zakhariystasenko.retrophone.R;
 
 public class RetroPhoneView extends ViewGroup implements DiskRotationController.ViewCallback {
+    private String mPhoneNumber = "";
     private Paint mPaint = new Paint();
 
     private PhoneDisk mPhoneDisk;
 
     private DiskRotationController mDiskRotationController;
     private ActivityCallback mActivityCallback;
+    private Thread mUserActionsWaiter;
 
     private Point[] mButtonCenters = new Point[PhoneDisk.BUTTONS_COUNT];
 
@@ -53,7 +56,8 @@ public class RetroPhoneView extends ViewGroup implements DiskRotationController.
                 ObjectAnimator.ofFloat(v, View.SCALE_X, 0.8f, 1).start();
                 ObjectAnimator.ofFloat(v, View.SCALE_Y, 0.8f, 1).start();
 
-                mActivityCallback.onResetPressed();
+                mPhoneNumber = "";
+                Toast.makeText(mContext, "Reset", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -109,11 +113,6 @@ public class RetroPhoneView extends ViewGroup implements DiskRotationController.
 
         mDiskRotationController = new DiskRotationController(mPhoneDisk, mContext);
         mDiskRotationController.setViewCallback(this);
-    }
-
-    @Override
-    public void onRotationFinished(int numberInputted) {
-        mActivityCallback.onNumberInputted(numberInputted);
     }
 
     private void drawPhoneDisk(Canvas canvas) {
@@ -172,9 +171,8 @@ public class RetroPhoneView extends ViewGroup implements DiskRotationController.
     }
 
     public interface ActivityCallback {
-        void onNumberInputted(int button);
 
-        void onResetPressed();
+        void onNumberInputted(String phoneNumber);
     }
 
     public void setCallback(ActivityCallback activityCallback) {
@@ -183,6 +181,29 @@ public class RetroPhoneView extends ViewGroup implements DiskRotationController.
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN && mUserActionsWaiter != null) {
+            mUserActionsWaiter.interrupt();
+        }
+
         return mDiskRotationController.handleTouch(event);
+    }
+
+    @Override
+    public void onRotationFinished(int numberInputted) {
+        mPhoneNumber += numberInputted;
+        Toast.makeText(mContext, mPhoneNumber, Toast.LENGTH_SHORT).show();
+
+        mUserActionsWaiter = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                mActivityCallback.onNumberInputted(mPhoneNumber);
+            }
+        });
+        mUserActionsWaiter.start();
     }
 }
