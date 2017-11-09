@@ -26,6 +26,8 @@ class DiskRotationController {
     // for sound on back rotation
     private SoundPool mSoundPool = new SoundPool(2, AudioManager.STREAM_MUSIC, 0);
     private int mButtonSoundId[] = new int[PhoneDisk.BUTTONS_COUNT];
+    private int mRotationSound;
+    private int mRotationSoundStream;
 
     DiskRotationController(PhoneDisk phoneDisk, Context context) {
         mPhoneDisk = phoneDisk;
@@ -40,6 +42,8 @@ class DiskRotationController {
         mButtonSoundId[7] = mSoundPool.load(context, R.raw.click_sound_8, 1);
         mButtonSoundId[8] = mSoundPool.load(context, R.raw.click_sound_9, 1);
         mButtonSoundId[9] = mSoundPool.load(context, R.raw.click_sound_10, 1);
+
+        mRotationSound = mSoundPool.load(context, R.raw.rotation_sound, 1);
     }
 
     boolean handleTouch(MotionEvent event) {
@@ -73,9 +77,10 @@ class DiskRotationController {
     }
 
     private void onMoveFinished() {
+        mRotationSoundStream = mSoundPool.play(mRotationSound, 1, 1, 0, 0, 1);
         int buttonInputted = getButtonInputted();
         if (buttonInputted != -1) {
-            mSoundPool.play(mButtonSoundId[buttonInputted], 1, 1, 0, 0, 1);
+            mSoundPool.play(mButtonSoundId[buttonInputted], 0.4f, 0.4f, 0, 0, 1);
             mViewCallback.onRotationFinished((buttonInputted + 1) % 10);
         }
 
@@ -157,6 +162,10 @@ class DiskRotationController {
 
         int backRotationAngle = (int) (mRotationStartAngle - mCurrentAngle);
         mIsRotatingBack = backRotationAngle != 0;
+
+        if (backRotationAngle == 0) {
+            mSoundPool.stop(mRotationSoundStream);
+        }
 
         setDiskRotatedOn(backRotationAngle);
     }
