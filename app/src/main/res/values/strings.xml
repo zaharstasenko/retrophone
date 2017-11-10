@@ -2,5 +2,5 @@
     <string name="app_name">RetroPhone</string>
     <string name="call_btn_text">Call</string>
     <string name="reset_btn_text">Reset</string>
-    <string name="permission_toast">Application need call permission</string>
+    <string name="need_permission">Application need call permission</string>
 </resources>

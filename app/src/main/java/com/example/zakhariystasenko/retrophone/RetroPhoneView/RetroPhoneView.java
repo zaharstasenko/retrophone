@@ -202,6 +202,7 @@ public class RetroPhoneView extends ViewGroup implements DiskRotationController.
                     return;
                 }
                 mActivityCallback.onNumberInputted(mPhoneNumber);
+                mPhoneNumber = "";
             }
         });
         mUserActionsWaiter.start();
